@@ -32,7 +32,11 @@ func fmtEventDetail(e *db.Event, participants, waitlist []*db.Participant) strin
 	if len(participants) > 0 {
 		sb.WriteString("\n*Confirmadas:*\n")
 		for i, p := range participants {
-			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, p.Name))
+			marker := ""
+			if p.IsConfirmed {
+				marker = "✅ "
+			}
+			sb.WriteString(fmt.Sprintf("%d. %s%s\n", i+1, marker, p.Name))
 		}
 	} else {
 		sb.WriteString("\nNenhuma confirmação ainda.\n")
@@ -89,6 +93,14 @@ func fmtJoinedWithSpots(name, eventName string, remaining int) string {
 
 func fmtAddedToWaitlist(name, eventName string, position int) string {
 	return fmt.Sprintf("⚠️ *%s* está lotado.\n⏳ *%s* entrou na lista de espera na posição *%d*.", eventName, name, position)
+}
+
+func fmtAttendanceConfirmed(name, eventName string) string {
+	return fmt.Sprintf("✅ *%s* confirmou presença em *%s*!", name, eventName)
+}
+
+func fmtAlreadyPresent(eventName string) string {
+	return fmt.Sprintf("ℹ️ Sua presença já está confirmada em *%s*.", eventName)
 }
 
 func fmtLeft(name, eventName string) string {

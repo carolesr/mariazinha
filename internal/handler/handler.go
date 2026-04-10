@@ -51,6 +51,8 @@ func (b *Bot) Handle(ctx context.Context, groupID, senderPhone, senderName, mess
 		b.handleJoin(ctx, intent, groupID, messageID, senderPhone, senderName)
 	case "leave":
 		b.handleLeave(ctx, intent, groupID, messageID, senderPhone, senderName)
+	case "confirm_attendance":
+		b.handleConfirm(ctx, intent, groupID, messageID, senderPhone, senderName)
 	case "detail":
 		b.handleDetail(ctx, intent, groupID, messageID)
 	case "list":
@@ -76,7 +78,7 @@ func (b *Bot) handleJoin(ctx context.Context, intent *ai.Intent, groupID, messag
 		return
 	}
 
-	if b.db.IsConfirmed(event.ID, phone) {
+	if b.db.IsParticipant(event.ID, phone) {
 		b.reply(ctx, groupID, messageID, fmtAlreadyConfirmed(event.Name))
 		return
 	}
@@ -129,6 +131,35 @@ func (b *Bot) handleLeave(ctx context.Context, intent *ai.Intent, groupID, messa
 	}
 
 	b.reply(ctx, groupID, messageID, fmtNotInEvent(event.Name))
+}
+
+func (b *Bot) handleConfirm(ctx context.Context, intent *ai.Intent, groupID, messageID, phone, name string) {
+	event := b.resolveEvent(ctx, intent, groupID, messageID)
+	if event == nil {
+		return
+	}
+
+	if !b.db.IsParticipant(event.ID, phone) {
+		b.reply(ctx, groupID, messageID, fmtNotInEvent(event.Name))
+		return
+	}
+	if b.db.IsConfirmed(event.ID, phone) {
+		b.reply(ctx, groupID, messageID, fmtAlreadyPresent(event.Name))
+		return
+	}
+
+	ok, err := b.db.ConfirmParticipant(event.ID, phone)
+	if err != nil {
+		log.Printf("confirm participant: %v", err)
+		b.reply(ctx, groupID, messageID, fmtInternalError())
+		return
+	}
+	if !ok {
+		b.reply(ctx, groupID, messageID, fmtInternalError())
+		return
+	}
+
+	b.reply(ctx, groupID, messageID, fmtAttendanceConfirmed(name, event.Name))
 }
 
 func (b *Bot) handleDetail(ctx context.Context, intent *ai.Intent, groupID, messageID string) {

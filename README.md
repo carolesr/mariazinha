@@ -174,6 +174,7 @@ Mention Mariazinha in any group she's a member of:
 ```
 @Mariazinha me coloca no karaoke de sábado
 @Mariazinha quero sair do piquenique dia 28
+@Mariazinha confirma minha presença no evento de karaoke
 @Mariazinha detalha o evento trilha
 @Mariazinha lista os eventos da semana
 @Mariazinha cria trilha sábado 8h no Parque Barigui, levar água, 15 vagas, gratuito

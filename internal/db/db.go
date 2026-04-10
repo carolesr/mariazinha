@@ -47,11 +47,12 @@ func migrate(conn *sql.DB) error {
 	);
 
 	CREATE TABLE IF NOT EXISTS participants (
-		id        INTEGER PRIMARY KEY AUTOINCREMENT,
-		event_id  INTEGER NOT NULL REFERENCES events(id),
-		phone     TEXT    NOT NULL,
-		name      TEXT    NOT NULL,
-		joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		event_id     INTEGER NOT NULL REFERENCES events(id),
+		phone        TEXT    NOT NULL,
+		name         TEXT    NOT NULL,
+		is_confirmed  BOOLEAN NOT NULL DEFAULT false,
+		joined_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(event_id, phone)
 	);
 
@@ -87,11 +88,12 @@ type Event struct {
 }
 
 type Participant struct {
-	ID       int64
-	EventID  int64
-	Phone    string
-	Name     string
-	JoinedAt time.Time
+	ID          int64
+	EventID     int64
+	Phone       string
+	Name        string
+	IsConfirmed bool
+	JoinedAt    time.Time
 }
 
 // ── Events ────────────────────────────────────────────────
@@ -155,10 +157,25 @@ func (d *DB) CountConfirmed(eventID int64) int {
 	return n
 }
 
-func (d *DB) IsConfirmed(eventID int64, phone string) bool {
+func (d *DB) IsParticipant(eventID int64, phone string) bool {
 	var n int
 	d.conn.QueryRow(`SELECT COUNT(*) FROM participants WHERE event_id = ? AND phone = ?`, eventID, phone).Scan(&n)
 	return n > 0
+}
+
+func (d *DB) IsConfirmed(eventID int64, phone string) bool {
+	var n int
+	d.conn.QueryRow(`SELECT COUNT(*) FROM participants WHERE event_id = ? AND phone = ? AND is_confirmed = true`, eventID, phone).Scan(&n)
+	return n > 0
+}
+
+func (d *DB) ConfirmParticipant(eventID int64, phone string) (bool, error) {
+	res, err := d.conn.Exec(`UPDATE participants SET is_confirmed = true WHERE event_id = ? AND phone = ?`, eventID, phone)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 func (d *DB) AddParticipant(eventID int64, phone, name string) error {
@@ -180,7 +197,7 @@ func (d *DB) RemoveParticipant(eventID int64, phone string) (bool, error) {
 
 func (d *DB) ListParticipants(eventID int64) ([]*Participant, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, event_id, phone, name, joined_at FROM participants WHERE event_id = ? ORDER BY joined_at ASC`,
+		`SELECT id, event_id, phone, name, is_confirmed, joined_at FROM participants WHERE event_id = ? ORDER BY joined_at ASC`,
 		eventID,
 	)
 	if err != nil {
@@ -291,7 +308,7 @@ func scanParticipants(rows *sql.Rows) ([]*Participant, error) {
 	var list []*Participant
 	for rows.Next() {
 		var p Participant
-		if err := rows.Scan(&p.ID, &p.EventID, &p.Phone, &p.Name, &p.JoinedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.EventID, &p.Phone, &p.Name, &p.IsConfirmed, &p.JoinedAt); err != nil {
 			return nil, err
 		}
 		list = append(list, &p)
